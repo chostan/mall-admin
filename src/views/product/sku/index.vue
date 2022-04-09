@@ -12,7 +12,10 @@
       <el-table-column prop="skuDesc" label="描述"> </el-table-column>
       <el-table-column label="默认图片" width="110">
         <template slot-scope="{ row }">
-          <img :src="row.skuDefaultImg" style="width: 80px; height: 80px" />
+          <el-image
+            :src="row.skuDefaultImg"
+            style="width: 80px; height: 80px"
+          />
         </template>
       </el-table-column>
       <el-table-column prop="weight" label="重量" width="80"> </el-table-column>
@@ -100,7 +103,14 @@
       <el-row>
         <el-col :span="5">商品图片</el-col>
         <el-col :span="16">
-          <el-carousel height="300px" :interval="2000" arrow="always">
+          <el-carousel
+            v-if="
+              skuInfo && skuInfo.skuImageList && skuInfo.skuImageList.length > 0
+            "
+            height="300px"
+            :interval="2000"
+            arrow="always"
+          >
             <el-carousel-item
               v-for="item in skuInfo.skuImageList"
               :key="item.id"

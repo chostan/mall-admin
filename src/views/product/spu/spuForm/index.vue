@@ -25,7 +25,7 @@
       <el-form-item label="SPU图片">
         <!-- 上传图片 -->
         <el-upload
-          action="/dev-api/admin/product/fileUpload"
+          :action="$BASE_API + '/admin/product/fileUpload'"
           list-type="picture-card"
           :file-list="spuImageList"
           :on-preview="handlePictureCardPreview"
@@ -110,7 +110,7 @@
             </template>
           </el-table-column>
           <el-table-column label="操作">
-            <template slot-scope="{ row, $index }">
+            <template slot-scope="{ $index }">
               <el-button
                 type="danger"
                 icon="el-icon-delete"
@@ -210,7 +210,11 @@ export default {
     // 照片墙图片上传成功的回调
     handleSuccess(response, file, fileList) {
       // 收集图片的信息
-      this.spuImageList = fileList;
+      if(response.code == 200) {
+        this.spuImageList = fileList;
+      }else {
+        this.$message.error('图片上传失败')
+      }
     },
     // 初始化SpuForm数据/编辑
     async initSpuData(spu) {
@@ -292,6 +296,7 @@ export default {
         (item) => item.saleAttrValueName != inputValue
       );
       if (!isRepeat) {
+        this.$message.closeAll();
         this.$message("属性值不能重复");
         return;
       }
@@ -326,7 +331,7 @@ export default {
     },
     // 取消按钮
     cancle() {
-      this.$emit("changeScene", { scene: 0, flag: "" });
+      this.$emit("changeScene", { scene: 0, flag: "取消" });
       // 清理数据
       //Object.assign:es6中新增的方法可以合并对象
       //组件实例this._data,可以操作data当中响应式数据

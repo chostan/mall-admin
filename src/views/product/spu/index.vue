@@ -19,7 +19,12 @@
         >
           添加SPU
         </el-button>
-        <el-table :data="records" border style="width: 100%">
+        <el-table
+          :data="records"
+          v-loading="recordsLoading"
+          border
+          style="width: 100%"
+        >
           <el-table-column type="index" label="序号" width="80" align="center">
           </el-table-column>
           <el-table-column prop="spuName" label="SPU名称"> </el-table-column>
@@ -100,9 +105,8 @@
         <el-table-column prop="weight" label="重量"> </el-table-column>
         <el-table-column label="默认图片">
           <template slot-scope="{ row }">
-            <img
+            <el-image
               :src="row.skuDefaultImg"
-              alt=""
               style="width: 100px; height: 100px"
             />
           </template>
@@ -131,6 +135,7 @@ export default {
       page: 1, // 分页器当前第几页
       limit: 3, // 每页多少条数据
       records: [], // spu列表数据
+      recordsLoading: false, // spu列表数据loading状态
       total: 0, // 分页器需要展示的数据条数
       scene: 0, //0代表展示SPU列表数据   1 添加SPU|修改SPU   2 添加SKU
       // 控制查看sku列表对话框的显示与隐藏
@@ -149,10 +154,14 @@ export default {
         this.category2Id = "";
         this.category3Id = "";
         this.records = [];
+        this.page = 1;
+        this.total = 0;
       } else if (level == 2) {
         this.category2Id = categoryId;
         this.category3Id = "";
         this.records = [];
+        this.page = 1;
+        this.total = 0;
       } else {
         this.category3Id = categoryId;
         // 获取SPU列表数据
@@ -161,13 +170,15 @@ export default {
     },
     // 获取SPU列表数据
     async getSpuList(pager = 1) {
+      this.recordsLoading = true;
       this.page = pager;
       const { page, limit, category3Id } = this;
-      const result = await this.$API.spu.reqSpuList(page, limit, category3Id);
-      if (result.code == 200) {
+      try {
+        const result = await this.$API.spu.reqSpuList(page, limit, category3Id);
         this.total = result.data.total;
         this.records = result.data.records;
-      }
+      } catch (error) {}
+      this.recordsLoading = false;
     },
     // 分页器每一页数据条数发生变化的回调
     handleSizeChange(limit) {
@@ -193,7 +204,7 @@ export default {
       // 重新获取数据
       if (flag == "修改") {
         this.getSpuList(this.page);
-      } else {
+      } else if (flag == "添加") {
         this.getSpuList();
       }
     },
@@ -221,13 +232,13 @@ export default {
       this.dialogTableVisible = true;
       // 保存spu信息
       this.spu = spu;
-      // 获取sku列表的数据
-      const result = await this.$API.spu.reqSkuList(spu.id);
-      if (result.code == 200) {
+      try {
+        // 获取sku列表的数据
+        const result = await this.$API.spu.reqSkuList(spu.id);
         this.skuList = result.data;
-        // loading隐藏
-        this.loading = false;
-      }
+      } catch (error) {}
+      // loading隐藏
+      this.loading = false;
     },
     // 关闭对话框的回调
     dialogBeforeClose(done) {

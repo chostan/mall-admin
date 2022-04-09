@@ -3,7 +3,7 @@ export default function computedAsyncRoutes(asyncRoutes, routes) {
   return asyncRoutes.filter((item) => {
     if (routes.indexOf(item.name) != -1) {
       // 递归
-      if (item.children && item.children.length) {
+      if (item.children && item.children.length > 0) {
         item.children = computedAsyncRoutes(item.children, routes);
       }
       return true;

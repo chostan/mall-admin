@@ -37,20 +37,22 @@
           </el-table-column>
           <el-table-column label="操作" width="150">
             <template slot-scope="{ row }">
-              <el-button
+              <hint-button
+                title="编辑"
                 type="warning"
                 icon="el-icon-edit"
                 size="mini"
                 @click="updateAttr(row)"
               >
-              </el-button>
-              <el-button
+              </hint-button>
+              <hint-button
+                title="删除"
                 type="danger"
                 icon="el-icon-delete"
                 size="mini"
                 @click="deleteAttr(row)"
               >
-              </el-button>
+              </hint-button>
             </template>
           </el-table-column>
         </el-table>
@@ -90,8 +92,8 @@
                 placeholder="请输入属性值名称"
                 size="mini"
                 v-if="row.flag"
-                @blur="toLook(row)"
-                @keyup.native.enter="toLook(row)"
+                @blur="toLook(row, $index)"
+                @keyup.native.enter="toLook(row,$index)"
               >
               </el-input>
               <span v-else @click="toEdit(row, $index)" style="display: block">
@@ -138,7 +140,6 @@ export default {
       category1Id: "",
       category2Id: "",
       category3Id: "",
-      flag: true,
       // 平台属性列表
       attrList: [],
       // 控制table显示与隐藏
@@ -185,6 +186,12 @@ export default {
     // 添加属性值
     addAttrValue() {
       // 向属性值数组添加元素
+      if (
+        this.attrInfo.attrValueList.length > 0 &&
+        this.attrInfo.attrValueList[this.attrInfo.attrValueList.length - 1]
+          .valueName == ""
+      )
+        return;
       this.attrInfo.attrValueList.push({
         attrId: this.attrInfo.id, //对于修改某一个属性的时候，可以在已有的属性值基础之上新增新的属性值（新增属性值的时候，需要把已有的属性的id带上）
         valueName: "",
@@ -219,10 +226,16 @@ export default {
       this.isShowTable = false;
     },
     // 失去焦点的事件
-    toLook(row) {
+    toLook(row, index) {
       // 如果属性值为空不能作为新的属性值，需要给用户提示，让他输入一个其他的属性值
       if (row.valueName.trim() === "") {
-        this.$message("请您输入一个正常的属性值");
+        // this.$message("请您输入一个正常的属性值");
+        this.$nextTick(() => {
+          if (index < this.attrInfo.attrValueList.length) {
+            //解决当添加到最后一个属性是空的话,被过滤后索引值出错
+            this.$refs[index].focus();
+          }
+        });
         return;
       }
       //新增的属性值不能与已有的属性值重复
@@ -235,7 +248,13 @@ export default {
         }
       });
       if (isRepeat) {
+        this.$message.closeAll();
         this.$message("新增的属性值不能与已有的属性值重复");
+        this.$nextTick(() => {
+          if (this.$refs[index]) {
+            this.$refs[index].focus();
+          }
+        });
         return;
       }
       // row：形参是当前用户添加的最新的属性值
@@ -244,7 +263,11 @@ export default {
     },
     // 点击span的回调，变为编辑模式
     toEdit(row, index) {
-      row.flag = true;
+      if (row.hasOwnProperty("flag")) {
+        row.flag = true;
+      } else {
+        this.$set(row, "flag", true);
+      }
       // 获取input，实现自动聚焦
       this.$nextTick(() => {
         this.$refs[index].focus();
@@ -264,15 +287,32 @@ export default {
           if (item.valueName !== "") {
             // 删除掉flag属性
             delete item.flag;
+            // 去重
             return true;
           }
         }
+      );
+      // 数组嵌套对象去重
+      const removeDuplicateObj = (arr) => {
+        let obj = {};
+        arr = arr.reduce((newArr, next) => {
+          obj[next.valueName]
+            ? ""
+            : (obj[next.valueName] = true && newArr.push(next));
+          return newArr;
+        }, []);
+        return arr;
+      };
+
+      this.attrInfo.attrValueList = removeDuplicateObj(
+        this.attrInfo.attrValueList
       );
       try {
         // 发请求
         await this.$API.attr.reqAddOrUpdateAttr(this.attrInfo);
         //展示平台属性数据
         this.isShowTable = true;
+        this.$message.closeAll();
         this.$message({
           type: "success",
           message: "保存成功",
@@ -283,6 +323,7 @@ export default {
         this.isShowTable = true;
       }
     },
+
     deleteAttr(row) {
       this.$confirm(`您确定删除${row.attrName}该属性吗?`, "提示", {
         confirmButtonText: "确定",
@@ -313,10 +354,9 @@ export default {
 </script>
 
 <style>
-body {
+/* body {
   padding-right: 0px !important;
-  overflow: hidden;
-}
+} */
 </style>
 
 <style scoped>

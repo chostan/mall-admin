@@ -2,9 +2,10 @@ import Vue from "vue";
 
 import "normalize.css/normalize.css"; // A modern alternative to CSS resets
 
-import ElementUI from "element-ui";
-import "element-ui/lib/theme-chalk/index.css";
+// import ElementUI from "element-ui";
+// import "element-ui/lib/theme-chalk/index.css";
 // import locale from "element-ui/lib/locale/lang/en"; // lang i18n
+import "@/plugins/elements";
 
 import "@/styles/index.scss"; // global css
 
@@ -15,6 +16,17 @@ import router from "./router";
 import "@/icons"; // icon
 import "@/permission"; // permission control
 
+Vue.prototype.$BASE_API = process.env.VUE_APP_BASE_API;
+
+// 引入判断按钮权限的方法
+import checkPermission from "@/utils/checkPermission";
+Vue.prototype.$checkPermission = checkPermission;
+
+// 引入相关API请求接口
+import API from "@/api";
+Vue.prototype.$API = API;
+// 注册全局组件
+import "@/global/index";
 /**
  * If you don't want to use mock-server
  * you want to use MockJs for mock api
@@ -23,7 +35,7 @@ import "@/permission"; // permission control
  * Currently MockJs will be used in the production environment,
  * please remove it before going online ! ! !
  */
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "development") {
   const { mockXHR } = require("../mock");
   mockXHR();
 }
@@ -31,16 +43,9 @@ if (process.env.NODE_ENV === "production") {
 // set ElementUI lang to EN
 // Vue.use(ElementUI, { locale });
 // 如果想要中文版 element-ui，按如下方式声明
-Vue.use(ElementUI);
+// Vue.use(ElementUI);
 
 Vue.config.productionTip = false;
-
-// 引入相关API请求接口
-import API from "@/api";
-import CategorySelect from "@/components/CategorySelect";
-Vue.prototype.$API = API;
-// 注册全局组件
-Vue.component(CategorySelect.name, CategorySelect);
 
 new Vue({
   el: "#app",

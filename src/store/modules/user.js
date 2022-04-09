@@ -15,8 +15,6 @@ const getDefaultState = () => {
     roles: [],
     // 按钮权限信息
     buttons: [],
-    // 对比之后 项目中的异步路由和服务返回的路由,最终需要展示的路由
-    resultAsyncRoutes: [],
     // 用户最终需要展示的全部路由
     resultAllRoutes: [],
   };
@@ -45,14 +43,14 @@ const mutations = {
     state.roles = userInfo.roles;
   },
   // 最终计算出来的异步路由
-  SET_RESULTASYNCROUTES: (state, asyncRoutes) => {
+  SET_RESULTASYNCROUTES: (state, routes) => {
     // 保存当前用户的异步路由
-    state.asyncRoutes = asyncRoutes;
+    const filerAsyncRoutes = computedAsyncRoutes(asyncRoutes, routes);
     // 计算出当前用户需要展示的所有路由
-    state.resultAllRoutes = constantRoutes.concat(state.asyncRoutes, anyRoutes);
+    state.resultAllRoutes = constantRoutes.concat(filerAsyncRoutes, anyRoutes);
     // 给路由器添加新的路由
-    resetRouter();
-    router.addRoutes(state.resultAllRoutes);
+    // router.addRoutes(state.resultAllRoutes);
+    router.addRoutes([...filerAsyncRoutes, anyRoutes]);
   },
 };
 
@@ -69,31 +67,20 @@ const actions = {
       commit("SET_TOKEN", result.data.token);
       //本地持久化存储token
       setToken(result.data.token);
-      return "ok";
+      return Promise.resolve();
     } else {
       return Promise.reject(new Error("faile"));
     }
   },
 
   // get user info
-  getInfo({ commit, state }) {
-    return new Promise((resolve, reject) => {
-      getInfo(state.token)
-        .then((response) => {
-          // 获取用户信息,返回数据包含用户名name,用户头像avatar,routes,roles,buttons
-          const { data } = response;
-          // 存储用户信息
-          commit("SET_USERINFO", data);
-          commit(
-            "SET_RESULTASYNCROUTES",
-            computedAsyncRoutes(asyncRoutes, data.routes)
-          );
-          resolve(data);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async getInfo({ commit }) {
+    const response = await getInfo();
+    // 获取用户信息,返回数据包含用户名name,用户头像avatar,routes,roles,buttons
+    const { data } = response;
+    // 存储用户信息
+    commit("SET_USERINFO", data);
+    commit("SET_RESULTASYNCROUTES", data.routes);
   },
 
   // user logout
@@ -102,8 +89,8 @@ const actions = {
       logout(state.token)
         .then(() => {
           removeToken(); // must remove  token  first
-          commit("RESET_STATE");
           resetRouter();
+          commit("RESET_STATE");
           resolve();
         })
         .catch((error) => {
@@ -116,6 +103,7 @@ const actions = {
   resetToken({ commit }) {
     return new Promise((resolve) => {
       removeToken(); // must remove  token  first
+      resetRouter();
       commit("RESET_STATE");
       resolve();
     });

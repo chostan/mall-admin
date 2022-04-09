@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="user-container">
     <el-form inline>
       <!-- 表单元素 -->
       <el-form-item>
@@ -80,9 +80,9 @@
       :current-page="page"
       :total="total"
       :page-size="limit"
-      :page-sizes="[3, 10, 20, 30, 40, 50, 100]"
-      style="padding: 20px 0"
+      :page-sizes="[5, 10, 20, 30]"
       layout="prev, pager, next, jumper, ->, sizes, total"
+      style="padding: 20px 0; text-align: center"
       @current-change="getUsers"
       @size-change="handleSizeChange"
     />
@@ -90,6 +90,7 @@
     <el-dialog
       :title="user.id ? '修改用户' : '添加用户'"
       :visible.sync="dialogUserVisible"
+      @close="dialogUserClose"
     >
       <el-form
         ref="userForm"
@@ -110,9 +111,9 @@
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="cancel">取 消</el-button>
-        <el-button :loading="loading" type="primary" @click="addOrUpdate"
-          >确 定</el-button
-        >
+        <el-button :loading="loading" type="primary" @click="addOrUpdate">
+          确 定
+        </el-button>
       </div>
     </el-dialog>
 
@@ -131,9 +132,10 @@
             :indeterminate="isIndeterminate"
             v-model="checkAll"
             @change="handleCheckAllChange"
-            >全选</el-checkbox
+            style="margin: 15px 0"
           >
-          <div style="margin: 15px 0"></div>
+            全选
+          </el-checkbox>
           <el-checkbox-group
             v-model="userRoleIds"
             @change="handleCheckedChange"
@@ -142,16 +144,17 @@
               v-for="role in allRoles"
               :key="role.id"
               :label="role.id"
-              >{{ role.roleName }}</el-checkbox
             >
+              {{ role.roleName }}
+            </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
       </el-form>
 
       <div slot="footer">
-        <el-button :loading="loading" type="primary" @click="assignRole"
-          >保存</el-button
-        >
+        <el-button :loading="loading" type="primary" @click="assignRole">
+          保存
+        </el-button>
         <el-button @click="resetRoleData">取消</el-button>
       </div>
     </el-dialog>
@@ -165,36 +168,51 @@ export default {
   name: "AclUserList",
 
   data() {
+    /*
+    自定义密码校验
+    */
+    const validatePassword = (rule, value, callback) => {
+      if (!value) {
+        callback("密码必须输入");
+      } else if (!value || value.length < 6) {
+        callback("密码不能小于6位");
+      } else {
+        callback();
+      }
+    };
     return {
+      users: [], // 当前页的用户列表
+      page: 1, // 当前页码
+      limit: 5, // 每页数量
+      total: 0, // 总数量
       listLoading: false, // 是否显示列表加载的提示
       searchObj: {
         // 包含请求搜索条件数据的对象
         username: "",
       },
+
       tempSearchObj: {
         // 收集搜索条件输入的对象
         username: "",
       },
       selectedIds: [], // 所有选择的user的id的数组
-      users: [], // 当前页的用户列表
-      page: 1, // 当前页码
-      limit: 3, // 每页数量
-      total: 0, // 总数量
       user: {}, // 当前要操作的user
       dialogUserVisible: false, // 是否显示用户添加/修改的dialog
       userRules: {
         // 用户添加/修改表单的校验规则
         username: [
-          { required: true, message: "用户名必须输入" },
-          { min: 4, message: "用户名不能小于4位" },
+          { required: true, message: "用户名必须输入", trigger: "blur" },
+          { min: 4, max: 16, message: "用户名在4-16位之间", trigger: "blur" },
         ],
-        password: [{ required: true, validator: this.validatePassword }],
+        password: [
+          { required: true, validator: validatePassword, trigger: "blur" },
+        ],
       },
       loading: false, // 是否正在提交请求中
       dialogRoleVisible: false, // 是否显示角色Dialog
       allRoles: [], // 所有角色列表
       userRoleIds: [], // 用户的角色ID的列表
-      isIndeterminate: false, // 是否是不确定的
+      isIndeterminate: true, // 是否是不确定的
       checkAll: false, // 是否全选
     };
   },
@@ -205,91 +223,31 @@ export default {
 
   methods: {
     /*
-    显示指定角色的界面
+    获取分页列表
     */
-    showAssignRole(user) {
-      this.user = user;
-      this.dialogRoleVisible = true;
-      this.getRoles();
-    },
+    async getUsers(pager = 1) {
+      this.listLoading = true;
+      this.page = pager;
+      const { page, limit, searchObj } = this;
 
+      try {
+        const result = await this.$API.user.getPageList(page, limit, searchObj);
+        const { items, total } = result.data;
+        this.users = items;
+        this.total = total;
+      } catch (error) {}
+
+      this.selectedIds = [];
+      this.listLoading = false;
+    },
     /*
-    全选勾选状态发生改变的监听
+    处理pageSize发生改变的监听回调
     */
-    handleCheckAllChange(value) {
-      // value 当前勾选状态true/false
-      // 如果当前全选, userRoleIds就是所有角色id的数组, 否则是空数组
-      this.userRoleIds = value ? this.allRoles.map((item) => item.id) : [];
-      // 如果当前不是全选也不全不选时, 指定为false
-      this.isIndeterminate = false;
+    handleSizeChange(pageSize) {
+      this.limit = pageSize;
+      this.getUsers();
     },
 
-    /*
-    异步获取用户的角色列表
-    */
-    async getRoles() {
-      const result = await this.$API.user.getRoles(this.user.id);
-      const { allRolesList, assignRoles } = result.data;
-      this.allRoles = allRolesList;
-      this.userRoleIds = assignRoles.map((item) => item.id);
-
-      this.checkAll = allRolesList.length === assignRoles.length;
-      this.isIndeterminate =
-        assignRoles.length > 0 && assignRoles.length < allRolesList.length;
-    },
-
-    /*
-    角色列表选中项发生改变的监听
-    */
-    handleCheckedChange(value) {
-      const { userRoleIds, allRoles } = this;
-      this.checkAll =
-        userRoleIds.length === allRoles.length && allRoles.length > 0;
-      this.isIndeterminate =
-        userRoleIds.length > 0 && userRoleIds.length < allRoles.length;
-    },
-
-    /*
-    请求给用户进行角色授权
-    */
-    async assignRole() {
-      const userId = this.user.id;
-      const roleIds = this.userRoleIds.join(",");
-      this.loading = true;
-      const result = await this.$API.user.assignRoles(userId, roleIds);
-      this.loading = false;
-      this.$message.success(result.message || "分配角色成功");
-      this.resetRoleData();
-
-      // console.log(this.$store.getters.name, this.user)
-      if (this.$store.getters.name === this.user.username) {
-        window.location.reload();
-      }
-    },
-
-    /*
-    重置用户角色的数据
-    */
-    resetRoleData() {
-      this.dialogRoleVisible = false;
-      this.allRoles = [];
-      this.userRoleIds = [];
-      this.isIndeterminate = false;
-      this.checkAll = false;
-    },
-
-    /*
-    自定义密码校验
-    */
-    validatePassword(rule, value, callback) {
-      if (!value) {
-        callback("密码必须输入");
-      } else if (!value || value.length < 6) {
-        callback("密码不能小于6位");
-      } else {
-        callback();
-      }
-    },
     /*
     根据输入进行搜索
     */
@@ -322,65 +280,11 @@ export default {
     },
 
     /*
-    删除所有选中的用户
-    */
-    revomveUsers() {
-      this.$confirm("确定删除吗?")
-        .then(async () => {
-          await this.$API.user.removeUsers(this.selectedIds);
-          this.$message.success("删除成功");
-          this.getUsers();
-        })
-        .catch(() => {
-          this.$message.info("取消删除");
-        });
-    },
-
-    /*
-    列表选中状态发生改变的监听回调
-    */
-    handleSelectionChange(selection) {
-      this.selectedIds = selection.map((item) => item.id);
-    },
-
-    /*
     显示更新用户的界面
     */
     showUpdateUser(user) {
       this.user = cloneDeep(user);
       this.dialogUserVisible = true;
-    },
-
-    /*
-    删除某个用户
-    */
-    async removeUser(id) {
-      await this.$API.user.removeById(id);
-      this.$message.success("删除成功");
-      this.getUsers(this.users.length === 1 ? this.page - 1 : this.page);
-    },
-
-    /*
-    获取分页列表
-    */
-    async getUsers(page = 1) {
-      this.page = page;
-      const { limit, searchObj } = this;
-      this.listLoading = true;
-      const result = await this.$API.user.getPageList(page, limit, searchObj);
-      this.listLoading = false;
-      const { items, total } = result.data;
-      this.users = items.filter((item) => item.username !== "admin");
-      this.total = total - 1;
-      this.selectedIds = [];
-    },
-
-    /*
-    处理pageSize发生改变的监听回调
-    */
-    handleSizeChange(pageSize) {
-      this.limit = pageSize;
-      this.getUsers();
     },
 
     /*
@@ -395,20 +299,143 @@ export default {
     保存或者更新用户
     */
     addOrUpdate() {
-      this.$refs.userForm.validate((valid) => {
+      this.$refs.userForm.validate(async (valid) => {
         if (valid) {
           const { user } = this;
+          if (user.name === "admin") {
+            alert("admin账号不能添加或更新");
+            return;
+          }
           this.loading = true;
-          this.$API.user[user.id ? "update" : "add"](user).then((result) => {
-            this.loading = false;
+          try {
+            await this.$API.user[user.id ? "update" : "add"](user);
             this.$message.success("保存成功!");
             this.getUsers(user.id ? this.page : 1);
             this.user = {};
             this.dialogUserVisible = false;
-          });
+          } catch (error) {}
+          this.loading = false;
         }
       });
+    },
+
+    dialogUserClose() {
+      this.$refs.userForm.clearValidate();
+    },
+
+    /*
+    删除某个用户
+    */
+    async removeUser(id) {
+      await this.$API.user.removeById(id);
+      this.$message.success("删除成功");
+      this.getUsers(this.users.length > 1 ? this.page : this.page--);
+    },
+
+    /*
+    列表选中状态发生改变的监听回调
+    */
+    handleSelectionChange(selection) {
+      this.selectedIds = selection.map((item) => item.id);
+    },
+
+    /*
+    删除所有选中的用户
+    */
+    revomveUsers() {
+      this.$confirm("确定删除吗?")
+        .then(async () => {
+          await this.$API.user.removeUsers(this.selectedIds);
+          this.$message.success("删除成功");
+          this.getUsers();
+        })
+        .catch((err) => {
+          if (err == "cancel") {
+            this.$message.info("取消删除");
+          }
+        });
+    },
+
+    /*
+    显示指定角色的界面
+    */
+    showAssignRole(user) {
+      this.user = user;
+      this.dialogRoleVisible = true;
+      this.getRoles();
+    },
+
+    /*
+    异步获取用户的角色列表
+    */
+    async getRoles() {
+      const result = await this.$API.user.getRoles(this.user.id);
+      const { allRolesList, assignRoles } = result.data;
+      this.allRoles = allRolesList;
+      this.userRoleIds = assignRoles.map((item) => item.id);
+
+      this.checkAll = allRolesList.length === assignRoles.length;
+      this.isIndeterminate =
+        assignRoles.length > 0 && assignRoles.length < allRolesList.length;
+    },
+
+    /*
+    全选勾选状态发生改变的监听
+    */
+    handleCheckAllChange(value) {
+      // value 当前勾选状态true/false
+      // 如果当前全选, userRoleIds就是所有角色id的数组, 否则是空数组
+      this.userRoleIds = value ? this.allRoles.map((item) => item.id) : [];
+      // 如果当前不是全选也不全不选时, 指定为false
+      this.isIndeterminate = false;
+    },
+
+    /*
+    角色列表选中项发生改变的监听
+    */
+    handleCheckedChange() {
+      const { userRoleIds, allRoles } = this;
+      this.checkAll =
+        userRoleIds.length === allRoles.length && allRoles.length > 0;
+      this.isIndeterminate =
+        userRoleIds.length > 0 && userRoleIds.length < allRoles.length;
+    },
+
+    /*
+    重置用户角色的数据
+    */
+    resetRoleData() {
+      this.dialogRoleVisible = false;
+      this.allRoles = [];
+      this.userRoleIds = [];
+      this.isIndeterminate = true;
+      this.checkAll = false;
+    },
+
+    /*
+    请求给用户进行角色授权
+    */
+    async assignRole() {
+      const userId = this.user.id;
+      const roleIds = this.userRoleIds.join(",");
+      this.loading = true;
+      const result = await this.$API.user.assignRoles(userId, roleIds);
+      this.loading = false;
+      this.$message.success(result.message || "分配角色成功");
+      this.resetRoleData();
+      this.getUsers(this.page);
+
+      // console.log(this.$store.getters.name, this.user)
+      if (this.$store.getters.name === this.user.username) {
+        window.location.reload();
+      }
     },
   },
 };
 </script>
+
+<style scoped>
+.user-container {
+  padding-top: 40px;
+}
+</style>

@@ -1,20 +1,16 @@
 <template>
-  <a :title="title" style="margin: 10px">
+  <el-tooltip effect="dark" :content="title" placement="top">
+    <!-- 将接收的所有属性和监听方法都传递给button -->
     <el-button v-bind="$attrs" v-on="$listeners"></el-button>
-  </a>
+  </el-tooltip>
 </template>
 
 <script>
 export default {
-  name: 'HintButton',
-  props: {
-    title: {
-      type: String
-    }
-  }
-}
+  name: "HintButton",
+  props: ["title"],
+};
 </script>
 
 <style scoped>
-
 </style>

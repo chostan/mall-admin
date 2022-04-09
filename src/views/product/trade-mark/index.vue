@@ -1,6 +1,7 @@
 <template>
   <div class="trade-mark">
     <el-button
+      :disabled="!$checkPermission('btn.Trademark.add')"
       type="primary"
       icon="el-icon-plus"
       style="margin: 10px 0"
@@ -9,7 +10,13 @@
       添加
     </el-button>
     <!-- 表格 -->
-    <el-table :data="list" border style="width: 100%">
+    <el-table
+      :data="list"
+      v-loading="loading"
+      stripe
+      border
+      style="width: 100%"
+    >
       <el-table-column
         type="index"
         label="序号"
@@ -19,12 +26,13 @@
       <el-table-column prop="tmName" label="品牌名称"></el-table-column>
       <el-table-column prop="logoUrl" label="品牌LOGO">
         <template v-slot="{ row }">
-          <img :src="row.logoUrl" alt="" style="width: 100px; height: 100px" />
+          <el-image :src="row.logoUrl" style="height: 80px" />
         </template>
       </el-table-column>
       <el-table-column label="操作">
         <template slot-scope="{ row }">
           <el-button
+            :disabled="!$checkPermission('btn.Trademark.update')"
             type="warning"
             icon="el-icon-edit"
             size="mini"
@@ -33,6 +41,7 @@
             修改
           </el-button>
           <el-button
+            :disabled="!$checkPermission('btn.Trademark.remove')"
             type="danger"
             icon="el-icon-delete"
             size="mini"
@@ -74,7 +83,7 @@
         <el-form-item label="品牌LOGO" label-width="100px" prop="logoUrl">
           <el-upload
             class="avatar-uploader"
-            action="/dev-api/admin/product/fileUpload"
+            :action="$BASE_API + '/admin/product/fileUpload'"
             :show-file-list="false"
             :on-success="handleAvatarSuccess"
             :before-upload="beforeAvatarUpload"
@@ -82,14 +91,18 @@
             <img v-if="tmForm.logoUrl" :src="tmForm.logoUrl" class="avatar" />
             <i v-else class="el-icon-plus avatar-uploader-icon"></i>
             <div slot="tip" class="el-upload__tip">
-              只能上传jpg/png文件,且不超过500kb
+              只能上传jpg/png文件,且不超过2MB
             </div>
           </el-upload>
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="dialogFormVisible = false">取 消</el-button>
-        <el-button type="primary" @click="addOrUpdateTradeMark">
+        <el-button
+          type="primary"
+          :loading="saveLoading"
+          @click="addOrUpdateTradeMark"
+        >
           确 定
         </el-button>
       </div>
@@ -118,12 +131,14 @@ export default {
       total: 0,
       // 列表数据
       list: [],
+      loading: false, //请求是否加载中
       dialogFormVisible: false,
       // 新增/修改品牌信息
       tmForm: {
         tmName: "",
         logoUrl: "",
       },
+      saveLoading: false,
       // 表单验证规则
       rules: {
         tmName: [
@@ -142,13 +157,15 @@ export default {
   methods: {
     // 获取品牌列表数据
     async getPageList(pager = 1) {
+      this.loading = true;
       this.page = pager;
       const { page, limit } = this;
-      const result = await this.$API.tradeMark.reqTradeMarkList(page, limit);
-      if (result.code === 200) {
+      try {
+        const result = await this.$API.tradeMark.reqTradeMarkList(page, limit);
         this.total = result.data.total;
         this.list = result.data.records;
-      }
+      } catch (error) {}
+      this.loading = false;
     },
     handleSizeChange(limit) {
       this.limit = limit;
@@ -156,12 +173,12 @@ export default {
     },
     // 添加品牌
     showDialog() {
-      this.dialogFormVisible = true;
       // 清除数据
       this.tmForm = {
         tmName: "",
         logoUrl: "",
       };
+      this.dialogFormVisible = true;
     },
     // 修改品牌
     updateTradeMark(row) {
@@ -170,38 +187,44 @@ export default {
     },
     // 图片上传成功的回调
     handleAvatarSuccess(res, file) {
-      this.tmForm.logoUrl = res.data;
+      if (res.code == 200) {
+        this.tmForm.logoUrl = res.data;
+      } else {
+        this.$message.error(res.data || "上传图片失败");
+      }
     },
     beforeAvatarUpload(file) {
-      const isJPG = file.type === "image/jpeg";
+      const isJPGOrPNG =
+        file.type === "image/jpeg" || file.type === "image/png";
       const isLt2M = file.size / 1024 / 1024 < 2;
 
-      if (!isJPG) {
-        this.$message.error("上传头像图片只能是 JPG 格式!");
+      if (!isJPGOrPNG) {
+        this.$message.error("上传头像图片只能是 JPG/PNG 格式!");
       }
       if (!isLt2M) {
         this.$message.error("上传头像图片大小不能超过 2MB!");
       }
-      return isJPG && isLt2M;
+      return isJPGOrPNG && isLt2M;
     },
     // 确定按钮(添加/修改品牌)
     addOrUpdateTradeMark() {
       this.$refs.tmFormRef.validate(async (valid) => {
         if (valid) {
-          this.dialogFormVisible = false;
-          // 发请求
-          const result = await this.$API.tradeMark.reqAddOrUpdateTradeMark(
-            this.tmForm
-          );
-          if (result.code === 200) {
+          try {
+            this.saveLoading = true;
+            // 发请求
+            await this.$API.tradeMark.reqAddOrUpdateTradeMark(this.tmForm);
+
             // 弹出信息
             this.$message({
               type: "success",
               message: this.tmForm.id ? "修改品牌成功" : "添加品牌成功",
             });
+            this.dialogFormVisible = false;
             // 重新获取品牌列表信息
             this.getPageList(this.tmForm.id ? this.page : 1);
-          }
+          } catch (error) {}
+          this.saveLoading = false;
         } else {
           console.log("error submit!!");
           return false;
@@ -210,7 +233,7 @@ export default {
     },
     // 删除品牌
     deleteTradeMark(row) {
-      this.$confirm(`您确定删除${this.tmForm.tmName}?`, "提示", {
+      this.$confirm(`您确定删除${row.tmName}?`, "提示", {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
         type: "warning",
@@ -226,16 +249,18 @@ export default {
             this.getPageList(this.list.length > 1 ? this.page : this.page - 1);
           }
         })
-        .catch(() => {
-          this.$message({
-            type: "info",
-            message: "已取消删除",
-          });
+        .catch((error) => {
+          if (error === "cancel") {
+            // 只有点击取消才提示
+            this.$message({
+              type: "info",
+              message: "已取消删除",
+            });
+          }
         });
     },
     handleDialogClose() {
       this.$refs.tmFormRef.resetFields();
-      console.log(this.tmForm);
     },
   },
 };

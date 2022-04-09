@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="permission-container">
     <!--
       code: "Acl" // 标识名称
       deleted: false
@@ -38,7 +38,9 @@
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="code" label="权限值" />
 
-      <el-table-column prop="toCode" label="跳转权限值" />
+      <!-- <el-table-column prop="toCode" label="跳转权限值" /> -->
+      <el-table-column prop="gmtCreate" label="创建时间" />
+      <el-table-column prop="gmtModified" label="更新时间" />
 
       <el-table-column label="操作">
         <template slot-scope="{ row }">
@@ -97,13 +99,13 @@
           <el-input v-model="permission.code" />
         </el-form-item>
 
-        <el-form-item
+        <!-- <el-form-item
           label="跳转路由权限值"
           prop="toCode"
           v-if="permission.level === 4"
         >
           <el-input v-model="permission.toCode" />
-        </el-form-item>
+        </el-form-item> -->
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="resetData">取 消</el-button>
@@ -118,14 +120,23 @@
 <script>
 // 菜单权限校验的规则
 const menuRules = {
-  name: [{ required: true, message: "名称必须输入" }],
-  code: [{ required: true, message: "权限值必须输入" }],
+  name: [
+    { required: true, message: "名称必须输入", trigger: "blur" },
+    { min: 2, max: 10, message: "长度在 2 到 10 个字符", trigger: "blur" },
+  ],
+  code: [{ required: true, message: "权限值必须输入", trigger: "blur" }],
 };
 
 // 按钮功能权限校验的规则
 const btnRules = {
-  name: [{ required: true, message: "名称必须输入" }],
-  code: [{ required: true, trigger: "blur", message: "功能权限值必须输入" }],
+  name: [{ required: true, message: "名称必须输入", trigger: "blur" }],
+  code: [
+    {
+      required: true,
+      trigger: "blur",
+      message: "功能权限值必须输入",
+    },
+  ],
 };
 
 export default {
@@ -169,11 +180,20 @@ export default {
     },
   },
 
-  mounted() {
+  created() {
     this.fetchPermissionList();
   },
 
   methods: {
+    /*
+    请求获取权限菜单数据列表
+    */
+    async fetchPermissionList() {
+      const result = await this.$API.permission.getPermissionList();
+      this.menuPermissionList = result.data.children;
+      this.expandKeys = [this.menuPermissionList[0].id];
+    },
+
     /*
     根据级别得到要显示的添加dialog的标题
     */
@@ -186,22 +206,13 @@ export default {
     },
 
     /*
-    请求获取权限菜单数据列表
-    */
-    async fetchPermissionList() {
-      const result = await this.$API.permission.getPermissionList();
-      this.menuPermissionList = result.data.children;
-      this.expandKeys = [this.menuPermissionList[0].id];
-    },
-
-    /*
     显示添加权限的界面(菜单或功能)
     */
     toAddPermission(row) {
       this.dialogPermissionVisible = true;
-      this.permission.pid = row.id;
-      this.permission.level = row.level + 1;
-      this.permission.type = this.permission.level === 4 ? 2 : 1;
+      this.permission.pid = row.id; // pid: "1" // 所属节点的id
+      this.permission.level = row.level + 1; // 给它的下一级添加
+      this.permission.type = this.permission.level === 4 ? 2 : 1; //  type: 1  // 1: 路由 2: 按钮
       this.permission.pname = row.name; // 用于显示父名称, 但提交请求时是不需要的
 
       // 清除校验(必须在界面更新之后)
@@ -214,7 +225,7 @@ export default {
     toUpdatePermission(row) {
       this.dialogPermissionVisible = true;
       this.permission = { ...row }; // 使用浅拷贝
-      this.permission.type = this.permission.level === 4 ? 2 : 1;
+      this.permission.type = this.permission.level === 4 ? 2 : 1; //  type: 1  // 1: 路由 2:
 
       // 清除校验(必须在界面更新之后)
       this.$nextTick(() => this.$refs.permission.clearValidate());
@@ -228,10 +239,8 @@ export default {
         type: "warning",
       })
         .then(async () => {
-          const result = await this.$API.permission.removePermission(
-            permission.id
-          );
-          this.$message.success(result.message || "删除成功!");
+          await this.$API.permission.removePermission(permission.id);
+          this.$message.success("删除成功!");
           this.fetchPermissionList();
         })
         .catch((error) => {
@@ -250,13 +259,12 @@ export default {
     addOrUpdatePermission() {
       this.$refs.permission.validate(async (valid) => {
         if (valid) {
-          const { pname, ...perm } = this.permission; // pname不需要携带
-          const result = await this.$API.permission[
-            perm.id ? "updatePermission" : "addPermission"
-          ](perm);
-          this.$message.success(
-            result.message || `${perm.id ? "修改" : "添加"}成功!`
-          );
+          const { permission } = this; // pname不需要携带
+          delete permission.pname;
+          await this.$API.permission[
+            permission.id ? "updatePermission" : "addPermission"
+          ](permission);
+          this.$message.success(`${permission.id ? "修改" : "添加"}成功!`);
           this.resetData();
           this.fetchPermissionList();
         }
@@ -278,3 +286,9 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.permission-container {
+  padding-top: 20px;
+}
+</style>

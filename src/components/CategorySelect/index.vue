@@ -82,9 +82,7 @@ export default {
     // 获取一级分类数据
     async getCategory1List() {
       const result = await this.$API.attr.reqCategory1List();
-      if (result.code === 200) {
-        this.list1 = result.data;
-      }
+      this.list1 = result.data;
     },
     // 一级分类change事件
     async handle1() {
@@ -96,9 +94,7 @@ export default {
       const { category1Id } = this.cForm;
       this.$emit("getCategoryId", { categoryId: category1Id, level: 1 });
       const result = await this.$API.attr.reqCategory2List(category1Id);
-      if (result.code === 200) {
-        this.list2 = result.data;
-      }
+      this.list2 = result.data;
     },
     // 二级分类change事件
     async handle2() {
@@ -108,9 +104,7 @@ export default {
       const { category2Id } = this.cForm;
       this.$emit("getCategoryId", { categoryId: category2Id, level: 2 });
       const result = await this.$API.attr.reqCategory3List(category2Id);
-      if (result.code === 200) {
-        this.list3 = result.data;
-      }
+      this.list3 = result.data;
     },
     async handle3() {
       const { category3Id } = this.cForm;

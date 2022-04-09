@@ -27,7 +27,7 @@ module.exports = {
   publicPath: "/",
   outputDir: "dist",
   assetsDir: "static",
-  lintOnSave: process.env.NODE_ENV === "development",
+  // lintOnSave: process.env.NODE_ENV === "development",
   productionSourceMap: false,
   devServer: {
     port: port,
@@ -41,11 +41,12 @@ module.exports = {
     proxy: {
       "/dev-api": {
         target: "http://39.98.123.211",
+        changeOrigin: true, // 支持跨域
         pathRewrite: { "^/dev-api": "" },
       },
     },
     // 开启mock数据
-    after: require("./mock/mock-server.js"),
+    // after: require("./mock/mock-server.js"),
   },
   lintOnSave: false,
   configureWebpack: {

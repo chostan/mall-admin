@@ -1,13 +1,13 @@
 <template>
-  <div>
+  <div class="role-container">
     <el-form inline>
       <el-form-item>
         <el-input v-model="tempSearchObj.roleName" placeholder="角色名称" />
       </el-form-item>
 
-      <el-button type="primary" icon="el-icon-search" @click="search"
-        >查询</el-button
-      >
+      <el-button type="primary" icon="el-icon-search" @click="search">
+        查询
+      </el-button>
       <el-button @click="resetSearch">清空</el-button>
     </el-form>
 
@@ -41,7 +41,6 @@
             <el-button
               class="cancel-btn"
               size="small"
-              icon="el-icon-refresh"
               type="warning"
               @click="cancelEdit(row)"
             >
@@ -78,7 +77,7 @@
             icon="el-icon-edit"
             title="修改角色"
             @click="row.edit = true"
-            v-if="!row.edit"
+            v-else
           />
 
           <el-button
@@ -97,8 +96,8 @@
       :current-page="page"
       :total="total"
       :page-size="limit"
-      :page-sizes="[5, 10, 20, 30, 40, 50, 100]"
-      style="padding: 20px 0"
+      :page-sizes="[5, 10, 20, 30]"
+      style="padding: 20px 0; text-align: center"
       layout="prev, pager, next, jumper, ->, sizes, total"
       @current-change="getRoles"
       @size-change="handleSizeChange"
@@ -129,67 +128,18 @@ export default {
     };
   },
 
-  mounted() {
+  created() {
     this.getRoles();
   },
 
   methods: {
     /*
-    取消修改
-    */
-    cancelEdit(role) {
-      role.roleName = role.originRoleName;
-      role.edit = false;
-      this.$message.warning("取消角色修改");
-    },
-
-    /*
-    更新角色
-    */
-    updateRole(role) {
-      this.$API.role
-        .updateById({ id: role.id, roleName: role.roleName })
-        .then((result) => {
-          this.$message.success(result.message || "更新角色成功!");
-          this.getRoles(this.page);
-        });
-    },
-
-    /*
-    每页数量发生改变的监听
-    */
-    handleSizeChange(pageSize) {
-      this.limit = pageSize;
-      this.getRoles();
-    },
-
-    /*
-    添加角色
-    */
-    addRole() {
-      // 显示添加界面
-      this.$prompt("请输入新名称", "添加角色", {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-      })
-        .then(({ value }) => {
-          this.$API.role.save({ roleName: value }).then((result) => {
-            this.$message.success(result.message || "添加角色成功");
-            this.getRoles();
-          });
-        })
-        .catch(() => {
-          this.$message.warning("取消添加");
-        });
-    },
-
-    /*
     异步获取角色分页列表
     */
-    getRoles(page = 1) {
-      this.page = page;
+    getRoles(pager = 1) {
       this.listLoading = true;
-      const { limit, searchObj } = this;
+      this.page = pager;
+      const { page, limit, searchObj } = this;
       this.$API.role
         .getPageList(page, limit, searchObj)
         .then((result) => {
@@ -204,6 +154,14 @@ export default {
         .finally(() => {
           this.listLoading = false;
         });
+    },
+
+    /*
+    每页数量发生改变的监听
+    */
+    handleSizeChange(pageSize) {
+      this.limit = pageSize;
+      this.getRoles();
     },
 
     /*
@@ -228,6 +186,49 @@ export default {
     },
 
     /*
+    取消修改
+    */
+    cancelEdit(role) {
+      role.roleName = role.originRoleName;
+      role.edit = false;
+      this.$message.warning("取消角色修改");
+    },
+
+    /*
+    更新角色
+    */
+    updateRole(role) {
+      this.$API.role
+        .updateById({ id: role.id, roleName: role.roleName })
+        .then(() => {
+          this.$message.success("修改角色成功!");
+          this.getRoles(this.page);
+        });
+    },
+
+    /*
+    添加角色
+    */
+    addRole() {
+      // 显示添加界面
+      this.$prompt("请输入新名称", "添加角色", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      })
+        .then(({ value }) => {
+          this.$API.role.save({ roleName: value }).then((result) => {
+            this.$message.success("添加角色成功");
+            this.getRoles();
+          });
+        })
+        .catch((err) => {
+          if (err == "cancel") {
+            this.$message.warning("取消添加");
+          }
+        });
+    },
+
+    /*
     删除指定的角色
     */
     removeRole({ id, roleName }) {
@@ -235,12 +236,14 @@ export default {
         type: "warning",
       })
         .then(async () => {
-          const result = await this.$API.role.removeById(id);
+          await this.$API.role.removeById(id);
           this.getRoles(this.roles.length === 1 ? this.page - 1 : this.page);
-          this.$message.success(result.message || "删除成功!");
+          this.$message.success("删除成功!");
         })
-        .catch(() => {
-          this.$message.info("已取消删除");
+        .catch((err) => {
+          if (err == "cancel") {
+            this.$message.info("已取消删除");
+          }
         });
     },
 
@@ -260,19 +263,20 @@ export default {
       })
         .then(async () => {
           const ids = this.selectedRoles.map((role) => role.id);
-          const result = await this.$API.role.removeRoles(ids);
+          await this.$API.role.removeRoles(ids);
           this.getRoles();
           this.$message({
             type: "success",
             message: "批量删除成功!",
           });
         })
-        .then((result) => {})
-        .catch(() => {
-          this.$message({
-            type: "info",
-            message: "已取消删除",
-          });
+        .catch((err) => {
+          if (err == "cancel") {
+            this.$message({
+              type: "info",
+              message: "已取消删除",
+            });
+          }
         });
     },
   },
@@ -280,6 +284,9 @@ export default {
 </script>
 
 <style scoped>
+.role-container {
+  padding-top: 40px;
+}
 .edit-input {
   padding-right: 100px;
 }
