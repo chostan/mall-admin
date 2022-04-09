@@ -87,9 +87,13 @@ export default {
         .then(() => {
           this.loading = false;
           this.$message.success("分配权限成功");
+          // const roleName = this.$route.query.roleName
+          // const roles = this.$store.getters.roles
           this.$router.replace("/acl/role/list", () => {
             // 跳转成功后, 判断如果更新的是当前用户对应角色的权限, 重新加载页面以获得最新的数据
-            // window.location.reload();
+            // if (roles.includes(roleName)) {
+            //   window.location.reload()
+            // }
           });
         })
         .catch(() => {
