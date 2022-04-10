@@ -87,11 +87,10 @@ export default {
         password: [
           { required: true, message: "请输入密码", trigger: "blur" },
           {
-            min: 6,
-            max: 15,
-            message: "长度在 6 到 15 个字符",
-            trigger: "blur",
-          },
+            pattern: /^[a-z0-9]{6,}$/,
+            message: '必须是6位-15位数字或字母',
+            trigger: 'blur',
+          }
         ],
       },
       loading: false,
