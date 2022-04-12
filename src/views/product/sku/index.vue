@@ -28,6 +28,7 @@
             icon="el-icon-bottom"
             size="mini"
             title="下架该商品"
+            :loading="row.saleButtonLoading"
             @click="cancel(row)"
           ></el-button>
           <el-button
@@ -36,6 +37,7 @@
             icon="el-icon-top"
             size="mini"
             title="上架该商品"
+            :loading="row.saleButtonLoading"
             @click="sale(row)"
           ></el-button>
           <!-- <el-button
@@ -75,7 +77,12 @@
     >
     </el-pagination>
     <!-- 抽屉效果 -->
-    <el-drawer :visible.sync="drawer" :show-close="false" size="50%">
+    <el-drawer
+      :visible.sync="drawer"
+      :show-close="false"
+      size="50%"
+      :before-close="drawerClose"
+    >
       <el-row>
         <el-col :span="5">名称</el-col>
         <el-col :span="16">{{ skuInfo.skuName }}</el-col>
@@ -103,9 +110,19 @@
       <el-row>
         <el-col :span="5">商品图片</el-col>
         <el-col :span="16">
-          <el-carousel
+          <el-image
             v-if="
-              skuInfo && skuInfo.skuImageList && skuInfo.skuImageList.length > 0
+              skuInfo &&
+              skuInfo.skuImageList &&
+              skuInfo.skuImageList.length == 1
+            "
+            style="width: 100%"
+            :src="skuInfo.skuImageList[0].imgUrl"
+            fit="cover"
+          ></el-image>
+          <el-carousel
+            v-else-if="
+              skuInfo && skuInfo.skuImageList && skuInfo.skuImageList.length > 1
             "
             height="300px"
             :interval="2000"
@@ -116,7 +133,7 @@
               :key="item.id"
             >
               <el-image
-                style="width: 100%; height: 100%"
+                style="width: 100%"
                 :src="item.imgUrl"
                 fit="cover"
               ></el-image>
@@ -159,7 +176,11 @@ export default {
       const result = await this.$API.sku.reqSkuList(page, limit);
       if (result.code == 200) {
         this.total = result.data.total;
-        this.skuList = result.data.records;
+        const records = result.data.records.map((item) => {
+          item.saleButtonLoading = false;
+          return item;
+        });
+        this.skuList = records;
       }
     },
     handleSizeChange(limit) {
@@ -168,21 +189,33 @@ export default {
     },
     // 上架
     async sale(row) {
-      let result = await this.$API.sku.reqSale(row.id);
-      console.log(result);
-      if (result.code == 200) {
-        this.$message.success("上架成功");
+      row.saleButtonLoading = true;
+      try {
+        let result = await this.$API.sku.reqSale(row.id);
+        // console.log(result);
+        if (result.code == 200) {
+          this.$message.success("上架成功");
+        }
+        this.getSkuList(this.page);
+      } catch (error) {
+        this.$message.error("上架失败");
       }
-      this.getSkuList(this.page);
+      row.saleButtonLoading = false;
     },
     // 下架
     async cancel(row) {
-      let result = await this.$API.sku.reqCancel(row.id);
-      console.log(result);
-      if (result.code == 200) {
-        this.$message.success("下架成功");
+      row.saleButtonLoading = true;
+      try {
+        let result = await this.$API.sku.reqCancel(row.id);
+        // console.log(result);
+        if (result.code == 200) {
+          this.$message.success("下架成功");
+        }
+        this.getSkuList(this.page);
+      } catch (error) {
+        this.$message.error("下架失败");
       }
-      this.getSkuList(this.page);
+      row.saleButtonLoading = false;
     },
     edit() {
       this.$message("正在开发中");
@@ -195,6 +228,10 @@ export default {
       if (result.code == 200) {
         this.skuInfo = result.data;
       }
+    },
+    drawerClose(done) {
+      this.skuInfo = {};
+      done();
     },
     // 删除sku
     deleteById(row) {
