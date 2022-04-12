@@ -87,7 +87,7 @@ export default {
         password: [
           { required: true, message: "请输入密码", trigger: "blur" },
           {
-            pattern: /^[a-z0-9]{6,}$/,
+            pattern: /^[a-z0-9]{6,15}$/,
             message: '必须是6位-15位数字或字母',
             trigger: 'blur',
           }
